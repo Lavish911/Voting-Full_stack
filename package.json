@@ -1,16 +1,16 @@
 {
   "name": "decentralized-evoting-dapp",
   "version": "1.0.0",
-  "description": "A decentralized voting application built on Ethereum.",
-  "main": "truffle.js",
+  "description": "Ethereum Sepolia voting dApp demonstrating on-chain voting and wallet-based identity.",
+  "main": "truffle-config.js",
   "directories": {
     "test": "test"
   },
   "scripts": {
     "dev": "lite-server",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "truffle test"
   },
-  "author": "",
+  "author": "Lavish Rahangdale",
   "license": "ISC",
   "devDependencies": {
     "lite-server": "^2.3.0",
