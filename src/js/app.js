@@ -221,13 +221,12 @@ App = {
         web3.version.getNetwork(function(err, netId) {
             if (err) {
                 console.error("Error getting network ID", err);
-                return;
+                return App.render();
             }
             
             if (netId !== "11155111") {
-                $("#voterLayout").hide();
-                App.showToast("Wrong Network. Please switch MetaMask to Ethereum Sepolia.", "warning");
-                return;
+                App.showToast("Wrong Network. Please switch MetaMask to Ethereum Sepolia.", "error");
+                return App.render();
             }
 
             $.getJSON("build/contracts/Election.json", function (election) {
@@ -240,6 +239,7 @@ App = {
                 }).catch(function(err) {
                     console.error("Contract instantiation failed.", err);
                     App.showToast("Contract not deployed on this network.", "error");
+                    return App.render();
                 });
             });
         });
@@ -345,7 +345,12 @@ App = {
     
     renderData: function() {
         if (App.isDemoMode) return App.renderDemo();
-        if (!App.contractInstance) return;
+        if (!App.contractInstance) {
+            $("#loader").hide();
+            $("#candidatesList").html('<div class="alert-box" style="margin-top: 20px;"><i data-lucide="alert-triangle" class="alert-icon"></i><div class="alert-content"><h4>Contract Not Found</h4><p>Unable to load the smart contract. Please ensure you are connected to the Sepolia network.</p></div></div>').show();
+            lucide.createIcons();
+            return;
+        }
         var electionInstance = App.contractInstance;
         
         electionInstance.owner().then(function(ownerAddress) {
