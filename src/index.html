@@ -66,7 +66,7 @@
     <div class="nav-container">
       <div class="nav-left">
         <i data-lucide="landmark" class="nav-icon"></i>
-        <span class="nav-brand">ELECTION 2026</span>
+        <span class="nav-brand">DECENTRAVOTE</span>
       </div>
       <div class="nav-center">
         <div class="nav-links">
@@ -88,16 +88,28 @@
 
   <div id="voterLayout" class="layout-container">
     <div class="main-column">
+      <div class="connection-profile-row">
+        <div class="profile-card">
+          <span class="profile-label">Wallet</span>
+          <span class="profile-value mono" id="headerWallet">Not Connected</span>
+        </div>
+        <div class="profile-card">
+          <span class="profile-label">Role</span>
+          <span class="profile-value" id="headerRole">Not Connected</span>
+        </div>
+        <div class="profile-card">
+          <span class="profile-label">Network</span>
+          <span class="profile-value" id="headerNetwork">Unknown</span>
+        </div>
+      </div>
+
       <header class="hero-header">
         <div class="hero-content">
-          <span class="overtitle">DECENTRALIZED E-VOTING PLATFORM</span>
-          <h1>PRESIDENTIAL ELECTION 2026</h1>
-          <p class="subtitle">Secure. Transparent. Tamper-proof.</p>
-          <p class="description">Your vote matters. Powered by Ethereum blockchain.</p>
+          <span class="overtitle">ELECTION OVERVIEW</span>
+          <h1>Student Council Election 2026</h1>
+          <p class="description">Secure. Transparent. Tamper-proof.</p>
         </div>
-        <div class="hero-bg-graphic">
-          <!-- We'll simulate the graphic with CSS or just leave space for it -->
-        </div>
+      </header>
       </header>
 
       <div class="stats-row">
@@ -145,6 +157,16 @@
         
         <div id="candidatesList" class="candidates-list" style="display: none;">
           <!-- Candidates rendered here -->
+        </div>
+      </section>
+
+      <section id="results" class="section results-section">
+        <div class="section-header">
+          <h2>Election Results</h2>
+          <p>Live standings sorted by total votes.</p>
+        </div>
+        <div id="resultsList" class="results-list">
+          <!-- Results rendered here -->
         </div>
       </section>
 
@@ -197,7 +219,7 @@
         <div class="info-list">
           <div class="info-list-item">
             <div class="info-list-label"><i data-lucide="calendar"></i> Election Name</div>
-            <div class="info-list-value">Presidential Election 2026</div>
+            <div class="info-list-value">Student Council Election 2026</div>
           </div>
           <div class="info-list-item">
             <div class="info-list-label"><i data-lucide="file-text"></i> Election ID</div>
@@ -222,7 +244,7 @@
         </div>
       </div>
 
-      <div class="sidebar-card how-it-works-card">
+      <div id="how-it-works" class="sidebar-card how-it-works-card">
         <h2>How It Works</h2>
         <div class="timeline">
           <div class="timeline-step">
@@ -333,7 +355,7 @@
       <div class="footer-left">
         <i data-lucide="landmark" class="nav-icon"></i>
         <div>
-          <p class="footer-brand">ELECTION 2026</p>
+          <p class="footer-brand">DECENTRAVOTE</p>
           <p class="footer-desc">Decentralized E-Voting Platform</p>
           <p class="footer-tech">Built with Solidity · Ethereum · Web3.js</p>
         </div>

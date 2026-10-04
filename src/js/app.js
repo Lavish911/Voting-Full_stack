@@ -156,6 +156,10 @@ App = {
         $("#sidebarCandidates").text(App.candidatesCount);
         $("#sidebarTotalVotes").text(App.totalVotes);
         
+        $("#headerWallet").text(App.account);
+        $("#headerRole").text($("#adminLayout").is(":visible") ? "ADMIN (Demo)" : "VOTER (Demo)");
+        $("#headerNetwork").text("Local Demo Simulation");
+        
         if (App.demoElectionStatus === 'CLOSED') {
             $(".status-active").text("CLOSED").css("color", "var(--error)");
             $(".badge-success").html('<i data-lucide="x-circle" style="width: 12px; height: 12px; margin-right: 4px;"></i> CLOSED').css("background", "var(--error-bg)").css("color", "var(--error)");
@@ -209,20 +213,48 @@ App = {
     },
 
     initContract: function () {
-        $.getJSON("build/contracts/Election.json", function (election) {
-            App.contracts.Election = TruffleContract(election);
-            App.contracts.Election.setProvider(App.web3Provider);
+        web3.version.getNetwork(function(err, netId) {
+            if (err) {
+                console.error("Error getting network ID", err);
+                return;
+            }
             
-            App.contracts.Election.deployed().then(function(instance) {
-                App.contractAddress = instance.address;
-                $('#infoContract').text(instance.address);
-                App.listenForEvents(instance);
-                return App.render();
-            }).catch(function(err) {
-                console.error("Contract not deployed to detected network.", err);
-                App.showToast("Contract not deployed on this network.", "error");
+            if (netId !== "11155111" && netId !== "5777" && netId !== "1337") {
+                $("#voterLayout").hide();
+                App.showToast("Wrong Network. Please switch MetaMask to Ethereum Sepolia.", "warning");
+                return;
+            }
+
+            $.getJSON("build/contracts/Election.json", function (election) {
+                App.contracts.Election = TruffleContract(election);
+                App.contracts.Election.setProvider(App.web3Provider);
+                
+                App.contracts.Election.deployed().then(function(instance) {
+                    App.setupContractInstance(instance);
+                }).catch(function(err) {
+                    console.warn("TruffleContract.deployed() failed. Attempting explicit Sepolia resolution.", err);
+                    
+                    if (netId === "11155111") {
+                        var sepoliaAddress = "0xf338182B03EF95626a46235DC8C877b9151Ef85C";
+                        App.contracts.Election.at(sepoliaAddress).then(function(instance) {
+                            App.setupContractInstance(instance);
+                        }).catch(function(fallbackErr) {
+                            console.error("Explicit contract instantiation failed.", fallbackErr);
+                            App.showToast("Contract not deployed on this network.", "error");
+                        });
+                    } else {
+                        App.showToast("Contract not deployed on this network.", "error");
+                    }
+                });
             });
         });
+    },
+
+    setupContractInstance: function(instance) {
+        App.contractAddress = instance.address;
+        $('#infoContract').text(instance.address);
+        App.listenForEvents(instance);
+        return App.render();
     },
 
     listenForEvents: function (instance) {
@@ -266,6 +298,8 @@ App = {
                 var shortAccount = account.substring(0,6) + '...' + account.substring(account.length-4);
                 
                 $("#infoWallet").text(account);
+                $("#headerWallet").text(shortAccount);
+                $("#headerRole").text("VOTER"); // Live admin role disabled until Stage 2
                 
                 var btn = $("#connectWalletBtn");
                 btn.html('<span class="indicator active"></span> ' + shortAccount);
@@ -274,6 +308,8 @@ App = {
                 $("#infoStatusIndicator").addClass('active');
                 $("#infoStatusText").text("Connected");
             } else {
+                $("#headerWallet").text("Not Connected");
+                $("#headerRole").text("Not Connected");
                 $("#infoStatusIndicator").removeClass('active').addClass('error');
                 $("#infoStatusText").text("Disconnected");
             }
@@ -282,6 +318,7 @@ App = {
         web3.version.getNetwork(function(err, netId) {
             if (!err) {
                 App.networkName = App.getNetworkName(netId);
+                $("#headerNetwork").text(App.networkName);
                 
                 if (netId !== "11155111" && netId !== "5777" && netId !== "1337") {
                     $("#networkName").html("&#9888; Wrong Network");
