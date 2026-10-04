@@ -9,39 +9,68 @@ contract Election {
     }
 
     mapping(uint256 => Candidate) public candidates;
-
     mapping(address => bool) public voters;
 
     uint256 public candidatesCount;
+    address public owner;
 
-    // voted event
-    //event votedEvent(uint256 indexed _candidateId);
+    enum ElectionState {
+        NOT_STARTED,
+        ACTIVE,
+        CLOSED
+    }
+
+    ElectionState public electionState;
+
+    event CandidateAdded(uint256 indexed candidateId, string name);
+    event ElectionStarted();
+    event ElectionEnded();
+    event VoteCast(address indexed voter, uint256 indexed candidateId);
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can perform this action");
+        _;
+    }
 
     constructor() public {
+        owner = msg.sender;
+        electionState = ElectionState.NOT_STARTED;
+
         addCandidate("John Wick");
         addCandidate("Browney Jr");
         addCandidate("Helena Williams");
     }
 
-    function addCandidate(string memory _name) private {
+    function addCandidate(string memory _name) public onlyOwner {
+        require(bytes(_name).length > 0, "Candidate name cannot be empty");
+        require(electionState == ElectionState.NOT_STARTED, "Election has already started");
+        
         candidatesCount++;
         candidates[candidatesCount] = Candidate(candidatesCount, _name, 0);
+
+        emit CandidateAdded(candidatesCount, _name);
+    }
+
+    function startElection() public onlyOwner {
+        require(electionState == ElectionState.NOT_STARTED, "Election already started or closed");
+        electionState = ElectionState.ACTIVE;
+        emit ElectionStarted();
+    }
+
+    function endElection() public onlyOwner {
+        require(electionState == ElectionState.ACTIVE, "Election is not active");
+        electionState = ElectionState.CLOSED;
+        emit ElectionEnded();
     }
 
     function vote(uint256 _candidateId) public {
-        // require that they haven't voted before
-        require(!voters[msg.sender]);
+        require(electionState == ElectionState.ACTIVE, "Election is not active");
+        require(!voters[msg.sender], "Voter has already voted");
+        require(_candidateId > 0 && _candidateId <= candidatesCount, "Invalid candidate ID");
 
-        // require a valid candidate
-        require(_candidateId > 0 && _candidateId <= candidatesCount);
-
-        // record that voter has voted
         voters[msg.sender] = true;
-
-        // update candidate vote Count
         candidates[_candidateId].voteCount++;
 
-        // trigger voted event
-        //emit votedEvent(_candidateId);
+        emit VoteCast(msg.sender, _candidateId);
     }
 }

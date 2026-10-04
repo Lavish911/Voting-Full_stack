@@ -144,6 +144,30 @@
       <!-- Toast Notifications -->
       <div id="toastContainer" class="toast-container"></div>
 
+      <section id="liveAdminControls" class="section admin-controls-section" style="display: none;">
+        <div class="section-header">
+          <h2>Admin Dashboard</h2>
+          <p>Manage the live election on the blockchain.</p>
+        </div>
+        
+        <div class="admin-controls">
+          <div class="admin-card">
+            <h3>Election Controls</h3>
+            <p>Status: <strong id="liveAdminElectionStatus">NOT STARTED</strong></p>
+            <div class="admin-btn-group" id="liveElectionBtnGroup">
+              <!-- JS injects buttons -->
+            </div>
+          </div>
+          <div class="admin-card">
+            <h3>Add Candidate</h3>
+            <div class="add-candidate-form">
+              <input type="text" id="liveNewCandidateName" placeholder="Candidate Full Name">
+              <button class="btn-primary" id="btnLiveAddCandidate" onclick="App.liveAddCandidate()">Add</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="candidates" class="section candidates-section">
         <div class="section-header">
           <h2>Candidates</h2>

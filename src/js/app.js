@@ -2,6 +2,7 @@ App = {
     web3Provider: null,
     contracts: {},
     account: '0x0',
+    owner: '0x0',
     hasVoted: false,
     candidatesCount: 0,
     candidates: [],
@@ -11,10 +12,10 @@ App = {
     selectedCandidateId: null,
     isDemoMode: false,
     demoElectionStatus: 'ACTIVE',
+    liveElectionStatusStr: 'NOT STARTED',
+    liveElectionStatusCode: 0,
 
     init: function () {
-        // App starts at the landing screen
-        // Live or Demo mode is triggered by the UI buttons
     },
 
     startLiveMode: function() {
@@ -22,6 +23,13 @@ App = {
         $("#mainAppWrapper").show();
         $("#liveBanner").css("display", "flex");
         App.isDemoMode = false;
+        
+        // Show blockchain UI
+        $("#connectWalletBtn").show();
+        $(".blockchain-info-section").show();
+        $("#adminLayout").hide();
+        $("#voterLayout").show();
+        
         return App.initWeb3();
     },
 
@@ -31,11 +39,9 @@ App = {
         $("#demoBanner").css("display", "flex");
         App.isDemoMode = true;
         
-        // Hide blockchain-specific UI in Demo mode
         $("#connectWalletBtn").hide();
         $(".blockchain-info-section").hide();
         
-        // Setup Demo Identity
         App.account = "DEMO-VOTER-" + Math.floor(Math.random() * 10000);
         App.networkName = "Local Demo Simulation";
         $("#sidebarNetwork").text(App.networkName);
@@ -49,6 +55,7 @@ App = {
     },
 
     switchAdmin: function() {
+        if (!App.isDemoMode) return;
         $("#voterLayout").hide();
         $("#adminLayout").show();
         $("#btnSwitchAdmin").hide();
@@ -57,6 +64,7 @@ App = {
     },
 
     switchVoter: function() {
+        if (!App.isDemoMode) return;
         $("#adminLayout").hide();
         $("#voterLayout").show();
         $("#btnSwitchVoter").hide();
@@ -159,6 +167,7 @@ App = {
         $("#headerWallet").text(App.account);
         $("#headerRole").text($("#adminLayout").is(":visible") ? "ADMIN (Demo)" : "VOTER (Demo)");
         $("#headerNetwork").text("Local Demo Simulation");
+        $("#liveAdminControls").hide();
         
         if (App.demoElectionStatus === 'CLOSED') {
             $(".status-active").text("CLOSED").css("color", "var(--error)");
@@ -188,10 +197,6 @@ App = {
                 console.error("User denied account access");
                 App.showToast("Error connecting wallet", "error");
             }
-        } else if (typeof web3 !== 'undefined') {
-            App.web3Provider = web3.currentProvider;
-            web3 = new Web3(web3.currentProvider);
-            App.onWalletConnected();
         } else {
             App.showToast("MetaMask is required for Live Blockchain mode.", "error");
             return;
@@ -257,33 +262,32 @@ App = {
     },
 
     listenForEvents: function (instance) {
-        // Listening for events emitted from the contract
-        if (typeof instance.votedEvent === 'function') {
-            instance.votedEvent({}, {
-                fromBlock: 0,
-                toBlock: 'latest'
-            }).watch(function (error, event) {
-                if (!error) {
-                    console.log("event triggered", event);
-                    // We reload UI silently when event happens
-                    App.renderData();
-                }
+        if (typeof instance.CandidateAdded === 'function') {
+            instance.CandidateAdded({}, { fromBlock: 'latest' }).watch(function(err, event) {
+                if(!err) App.renderData();
             });
-        } else {
-            console.warn("votedEvent not found on contract instance. Skipping event listener.");
+        }
+        if (typeof instance.ElectionStarted === 'function') {
+            instance.ElectionStarted({}, { fromBlock: 'latest' }).watch(function(err, event) {
+                if(!err) App.renderData();
+            });
+        }
+        if (typeof instance.ElectionEnded === 'function') {
+            instance.ElectionEnded({}, { fromBlock: 'latest' }).watch(function(err, event) {
+                if(!err) App.renderData();
+            });
+        }
+        if (typeof instance.VoteCast === 'function') {
+            instance.VoteCast({}, { fromBlock: 'latest' }).watch(function(err, event) {
+                if(!err) App.renderData();
+            });
         }
     },
 
     getNetworkName: function(id) {
         switch (id) {
             case "1": return "Ethereum Mainnet";
-            case "2": return "Morden";
-            case "3": return "Ropsten";
-            case "4": return "Rinkeby";
-            case "5": return "Goerli";
-            case "42": return "Kovan";
             case "11155111": return "Sepolia";
-            case "5777": return "Ganache / Local";
             default: return "Network ID: " + id;
         }
     },
@@ -291,18 +295,16 @@ App = {
     render: function () {
         var loader = $("#loader");
         var content = $("#candidatesList");
-
         loader.show();
         content.hide();
 
         web3.eth.getCoinbase(function (err, account) {
             if (err === null && account) {
-                App.account = account;
+                App.account = account.toLowerCase();
                 var shortAccount = account.substring(0,6) + '...' + account.substring(account.length-4);
                 
                 $("#infoWallet").text(account);
                 $("#headerWallet").text(shortAccount);
-                $("#headerRole").text("VOTER"); // Live admin role disabled until Stage 2
                 
                 var btn = $("#connectWalletBtn");
                 btn.html('<span class="indicator active"></span> ' + shortAccount);
@@ -323,7 +325,7 @@ App = {
                 App.networkName = App.getNetworkName(netId);
                 $("#headerNetwork").text(App.networkName);
                 
-                if (netId !== "11155111" && netId !== "5777" && netId !== "1337") {
+                if (netId !== "11155111") {
                     $("#networkName").html("&#9888; Wrong Network");
                     $("#networkBadge .indicator").removeClass('active').addClass('warning');
                     App.showToast("Please switch to Sepolia testnet.", "warning");
@@ -347,10 +349,21 @@ App = {
     },
     
     renderData: function() {
+        if (App.isDemoMode) return App.renderDemo();
         var electionInstance;
         
         App.contracts.Election.deployed().then(function (instance) {
             electionInstance = instance;
+            return electionInstance.owner();
+        }).then(function(ownerAddress) {
+            App.owner = ownerAddress.toLowerCase();
+            return electionInstance.electionState();
+        }).then(function(state) {
+            App.liveElectionStatusCode = state.toNumber();
+            if (App.liveElectionStatusCode === 0) App.liveElectionStatusStr = 'NOT STARTED';
+            else if (App.liveElectionStatusCode === 1) App.liveElectionStatusStr = 'ACTIVE';
+            else if (App.liveElectionStatusCode === 2) App.liveElectionStatusStr = 'CLOSED';
+            
             return electionInstance.candidatesCount();
         }).then(function (count) {
             App.candidatesCount = count.toNumber();
@@ -370,7 +383,6 @@ App = {
             
             App.totalVotes = App.candidates.reduce(function(acc, c) { return acc + c.voteCount; }, 0);
             
-            // Update Stats
             $("#statCandidates").text(App.candidatesCount);
             $("#statTotalVotes").text(App.totalVotes);
             $("#sidebarCandidates").text(App.candidatesCount);
@@ -380,29 +392,115 @@ App = {
         }).then(function (hasVoted) {
             App.hasVoted = hasVoted;
             
+            var role = (App.account === App.owner) ? 'ADMIN' : 'VOTER';
+            $("#headerRole").text(role);
+            
+            if (role === 'ADMIN') {
+                $("#liveAdminControls").show();
+                App.renderLiveAdminControls();
+            } else {
+                $("#liveAdminControls").hide();
+            }
+            
+            if (App.liveElectionStatusStr === 'CLOSED') {
+                $(".status-active").text("CLOSED").css("color", "var(--error)");
+                $(".badge-success").html('<i data-lucide="x-circle" style="width: 12px; height: 12px; margin-right: 4px;"></i> CLOSED').css("background", "var(--error-bg)").css("color", "var(--error)");
+            } else if (App.liveElectionStatusStr === 'ACTIVE') {
+                $(".status-active").text("ACTIVE").css("color", "var(--success)");
+                $(".badge-success").html('<i data-lucide="check-circle-2" style="width: 12px; height: 12px; margin-right: 4px;"></i> ACTIVE').css("background", "var(--success-bg)").css("color", "var(--success)");
+            } else {
+                $(".status-active").text("NOT STARTED").css("color", "var(--warning)");
+                $(".badge-success").html('<i data-lucide="clock" style="width: 12px; height: 12px; margin-right: 4px;"></i> NOT STARTED').css("background", "var(--warning-bg)").css("color", "var(--warning)");
+            }
+            
             App.renderCandidates();
             App.renderResults();
             
             $("#loader").hide();
             $("#candidatesList").show();
+            lucide.createIcons();
         }).catch(function (error) {
             console.warn(error);
         });
     },
     
+    renderLiveAdminControls: function() {
+        $("#liveAdminElectionStatus").text(App.liveElectionStatusStr);
+        var btnGroup = $("#liveElectionBtnGroup");
+        btnGroup.empty();
+        
+        if (App.liveElectionStatusCode === 0) { // NOT STARTED
+            btnGroup.append('<button class="btn-success" onclick="App.liveStartElection()">Start Election</button>');
+            $("#liveNewCandidateName").prop("disabled", false);
+            $("#btnLiveAddCandidate").prop("disabled", false);
+        } else if (App.liveElectionStatusCode === 1) { // ACTIVE
+            btnGroup.append('<button class="btn-danger" onclick="App.liveEndElection()">End Election</button>');
+            $("#liveNewCandidateName").prop("disabled", true);
+            $("#btnLiveAddCandidate").prop("disabled", true);
+        } else { // CLOSED
+            btnGroup.append('<span>Election Closed. Voting disabled.</span>');
+            $("#liveNewCandidateName").prop("disabled", true);
+            $("#btnLiveAddCandidate").prop("disabled", true);
+        }
+    },
+    
+    liveAddCandidate: function() {
+        var name = $("#liveNewCandidateName").val().trim();
+        if (!name) return;
+        App.showToast("Waiting for wallet confirmation...", "info");
+        App.contracts.Election.deployed().then(function(instance) {
+            return instance.addCandidate(name, { from: App.account });
+        }).then(function(result) {
+            $("#liveNewCandidateName").val("");
+            App.showToast("Candidate Added Successfully!<br><span class='toast-tx'>Tx: " + result.tx + "</span>", "success");
+            App.renderData();
+        }).catch(function(err) {
+            console.error(err);
+            App.showToast("Error adding candidate.", "error");
+        });
+    },
+
+    liveStartElection: function() {
+        App.showToast("Waiting for wallet confirmation...", "info");
+        App.contracts.Election.deployed().then(function(instance) {
+            return instance.startElection({ from: App.account });
+        }).then(function(result) {
+            App.showToast("Election Started!<br><span class='toast-tx'>Tx: " + result.tx + "</span>", "success");
+            App.renderData();
+        }).catch(function(err) {
+            console.error(err);
+            App.showToast("Error starting election.", "error");
+        });
+    },
+
+    liveEndElection: function() {
+        App.showToast("Waiting for wallet confirmation...", "info");
+        App.contracts.Election.deployed().then(function(instance) {
+            return instance.endElection({ from: App.account });
+        }).then(function(result) {
+            App.showToast("Election Ended!<br><span class='toast-tx'>Tx: " + result.tx + "</span>", "success");
+            App.renderData();
+        }).catch(function(err) {
+            console.error(err);
+            App.showToast("Error ending election.", "error");
+        });
+    },
+
     renderCandidates: function() {
         var container = $("#candidatesList");
         container.empty();
+        
+        var isLiveActive = (!App.isDemoMode && App.liveElectionStatusCode === 1);
+        var isDemoActive = (App.isDemoMode && App.demoElectionStatus === 'ACTIVE');
+        var isActive = App.isDemoMode ? isDemoActive : isLiveActive;
         
         App.candidates.forEach(function(c) {
             var percentage = App.totalVotes > 0 ? ((c.voteCount / App.totalVotes) * 100).toFixed(1) : 0;
             var numStr = (c.id < 10) ? '0' + c.id : c.id;
             
-            // Generate initials
             var initials = c.name.split(' ').map(function(n) { return n[0]; }).join('').toUpperCase().substring(0, 2);
             
             var row = $('<div class="candidate-row"></div>');
-            
             var left = $('<div class="candidate-left"></div>');
             left.append('<span class="candidate-number">' + numStr + '</span>');
             left.append('<div class="candidate-avatar">' + initials + '</div>');
@@ -422,21 +520,24 @@ App = {
             center.append(progress);
             
             var right = $('<div class="candidate-right"></div>');
-            var btn = $('<button class="btn-primary">Cast Vote</button>');
             
-            if (App.isDemoMode && App.demoElectionStatus !== 'ACTIVE') {
-                btn.prop('disabled', true);
-                btn.text('Closed');
-            } else if (App.hasVoted) {
-                btn.prop('disabled', true);
-                btn.text('Voted');
-            } else {
-                btn.click(function() {
-                    App.openConfirmModal(c.id, c.name);
-                });
+            var role = App.isDemoMode ? ($("#adminLayout").is(":visible") ? 'ADMIN' : 'VOTER') : (App.account === App.owner ? 'ADMIN' : 'VOTER');
+            
+            if (role !== 'ADMIN') {
+                var btn = $('<button class="btn-primary">Cast Vote</button>');
+                if (!isActive) {
+                    btn.prop('disabled', true);
+                    btn.text(App.isDemoMode ? 'Closed' : App.liveElectionStatusStr);
+                } else if (App.hasVoted) {
+                    btn.prop('disabled', true);
+                    btn.text('Voted');
+                } else {
+                    btn.click(function() {
+                        App.openConfirmModal(c.id, c.name);
+                    });
+                }
+                right.append(btn);
             }
-            
-            right.append(btn);
             
             row.append(left);
             row.append(center);
@@ -450,7 +551,6 @@ App = {
         var container = $("#resultsList");
         container.empty();
         
-        // Sort candidates by vote count descending
         var sorted = [...App.candidates].sort((a,b) => b.voteCount - a.voteCount);
         
         sorted.forEach(function(c, index) {
@@ -527,6 +627,11 @@ App = {
             return;
         }
         
+        if (App.liveElectionStatusCode !== 1) {
+            App.showToast("Election is not active.", "error");
+            return;
+        }
+        
         App.showToast("Waiting for wallet confirmation...", "info");
         
         App.contracts.Election.deployed().then(function (instance) {
@@ -544,7 +649,7 @@ App = {
         }).catch(function (err) {
             console.error(err);
             if (err.message.indexOf("revert") >= 0) {
-                App.showToast("Vote already recorded. Transaction reverted.", "error");
+                App.showToast("Vote already recorded or invalid state. Transaction reverted.", "error");
             } else if (err.message.indexOf("User denied") >= 0) {
                 App.showToast("Transaction cancelled by user.", "warning");
             } else {

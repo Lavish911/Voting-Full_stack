@@ -4,25 +4,26 @@ A professional, secure, and transparent decentralized application (dApp) for run
 
 ## 1. Project Overview
 
-This project provides a complete full-stack Ethereum application where an election administrator can deploy a set of candidates to the blockchain, and voters can cast secure, immutable votes. The frontend is designed to look like a modern election commission portal, prioritizing trust, security, and simplicity.
+This project provides a complete full-stack Ethereum application where an election administrator can deploy a set of candidates to the blockchain, manage the election lifecycle, and voters can cast secure, immutable votes. The frontend is designed to look like a modern election commission portal, prioritizing trust, security, and simplicity.
 
 ## 2. Features
 
 - **Immutable Voting**: Votes are recorded permanently on the Ethereum blockchain.
 - **One Vote Per Wallet**: The smart contract enforces that each Ethereum address can only cast a single vote.
 - **Live Transparent Results**: Anyone can view the real-time vote count directly from the smart contract, ensuring zero manipulation.
+- **Election Lifecycle Management**: Contract owner acts as Admin and can Start/End the election, and Add Candidates before the election starts.
 - **Professional Civic UI**: A clean, accessible, and responsive user interface reflecting the seriousness of civic elections.
 - **MetaMask Integration**: Seamless connection to Web3 wallets for secure transaction signing.
 
 ## 3. Architecture
 
-- **Smart Contract**: Solidity-based contract (`Election.sol`) that stores candidates and voting records.
+- **Smart Contract**: Solidity-based contract (`Election.sol`) that stores candidates, voting records, and election states (`NOT_STARTED`, `ACTIVE`, `CLOSED`). It includes access control for the contract deployer (Owner/Admin).
 - **Frontend**: Vanilla HTML/CSS/JS interface that communicates directly with the Ethereum blockchain via Web3.js.
 - **Blockchain Network**: Designed to be deployed on local testnets (Ganache) or public testnets (Sepolia).
 
 ## 4. Tech Stack
 
-- **Solidity**: Smart contract development
+- **Solidity**: Smart contract development (v0.5.x)
 - **Truffle**: Development environment, testing framework, and asset pipeline
 - **Web3.js**: Ethereum JavaScript API (v0.20 API structure utilized)
 - **Vanilla CSS/JS**: No heavy frontend frameworks, ensuring lightweight and fast execution
@@ -31,9 +32,14 @@ This project provides a complete full-stack Ethereum application where an electi
 ## 5. Smart Contract Details
 
 The `Election.sol` contract exposes the following functionality:
-- `candidates`: Mapping of candidate ID to `Candidate` struct (id, name, voteCount).
-- `voters`: Mapping of addresses to a boolean tracking if they have voted.
-- `vote(uint _candidateId)`: The primary function for users to cast a vote. It requires the sender hasn't voted before and validates the candidate ID.
+- **State Management**: `electionState` variable tracks whether the election is `NOT_STARTED`, `ACTIVE`, or `CLOSED`.
+- **Role Detection**: The `owner` of the contract can perform administrative actions.
+- **Admin Functions**: 
+  - `addCandidate(string memory _name)`: Adds a candidate (only possible when `NOT_STARTED`).
+  - `startElection()`: Transitions state to `ACTIVE`.
+  - `endElection()`: Transitions state to `CLOSED`.
+- **Voter Functions**:
+  - `vote(uint _candidateId)`: Casts a vote. Requires the sender hasn't voted, the candidate is valid, and the election is `ACTIVE`.
 
 ## 6. Local Setup
 
@@ -93,8 +99,7 @@ To deploy to Sepolia yourself:
 
 ## 12. Smart Contract (Sepolia)
 
-- **Deployed Address:** `0xf338182B03EF95626a46235DC8C877b9151Ef85C`
-- **Deployment Transaction:** `0xe9d38716bc05392a3572a906d526465d2a11c56655a8dabcc5e688d6e48a5654`
+- **Deployed Address:** *(See build/contracts/Election.json for the latest address)*
 
 ## 13. Live Demo (Frontend Deployment)
 
@@ -107,8 +112,6 @@ To deploy the frontend publicly:
 
 - **Educational/Portfolio Project**: This dApp is designed for demonstration and lacks formal security audits for binding public elections.
 - **Testnet Deployment**: Currently deployed on Ethereum Sepolia, not Mainnet.
-- **Candidate Management**: The current version has pre-configured candidates in the constructor. Dynamic candidate addition after deployment is not included by design for immutable elections.
-- **Web3 Version**: The frontend utilizes an older version of Truffle-contract and Web3.js compatibility, ensuring it runs reliably with the existing backend configuration.
 
 ---
 
