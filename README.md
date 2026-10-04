@@ -1,118 +1,218 @@
-# Decentralized E-Voting Platform
+# DecentraVote — Blockchain-Based E-Voting dApp
 
-A professional, secure, and transparent decentralized application (dApp) for running elections on the Ethereum blockchain. Built for modern civic platforms requiring tamper-resistant voting with high visual fidelity and robust reliability.
+A portfolio-focused Ethereum voting dApp that demonstrates **wallet-based voter identity, on-chain vote recording, election lifecycle controls, and one-vote-per-wallet enforcement**.
 
-## 1. Project Overview
+**Live demo:** https://evotingdapp-mu.vercel.app  
+**Network:** Ethereum Sepolia (Chain ID: 11155111)  
+**Deployed contract:** `0xAce9bDE7a05308f1bECe3D5fA804D695dBa95314`
 
-This project provides a complete full-stack Ethereum application where an election administrator can deploy a set of candidates to the blockchain, manage the election lifecycle, and voters can cast secure, immutable votes. The frontend is designed to look like a modern election commission portal, prioritizing trust, security, and simplicity.
+> **Scope:** This is an educational/portfolio blockchain voting demonstration. It is **not** intended for binding public elections and has not undergone a formal security audit.
 
-## 2. Features
+## What it demonstrates
 
-- **Immutable Voting**: Votes are recorded permanently on the Ethereum blockchain.
-- **One Vote Per Wallet**: The smart contract enforces that each Ethereum address can only cast a single vote.
-- **Live Transparent Results**: Anyone can view the real-time vote count directly from the smart contract, ensuring zero manipulation.
-- **Election Lifecycle Management**: Contract owner acts as Admin and can Start/End the election, and Add Candidates before the election starts.
-- **Professional Civic UI**: A clean, accessible, and responsive user interface reflecting the seriousness of civic elections.
-- **MetaMask Integration**: Seamless connection to Web3 wallets for secure transaction signing.
+- **On-chain voting** — votes are recorded through Solidity transactions on Ethereum Sepolia.
+- **Wallet-based identity** — MetaMask provides the connected Ethereum address used by the contract.
+- **One-vote-per-wallet enforcement** — the contract rejects a second vote from the same address.
+- **Election lifecycle** — `NOT_STARTED → ACTIVE → CLOSED`.
+- **Owner/Admin controls** — the contract owner can start/end the election and add candidates before voting starts.
+- **Live results** — candidate vote counts are read from the deployed contract.
+- **Demo Mode** — a wallet-free local simulation is available for exploring the UI without creating blockchain transactions.
+- **Responsive civic-style UI** — lightweight Vanilla HTML/CSS/JavaScript frontend.
 
-## 3. Architecture
+## Modes
 
-- **Smart Contract**: Solidity-based contract (`Election.sol`) that stores candidates, voting records, and election states (`NOT_STARTED`, `ACTIVE`, `CLOSED`). It includes access control for the contract deployer (Owner/Admin).
-- **Frontend**: Vanilla HTML/CSS/JS interface that communicates directly with the Ethereum blockchain via Web3.js.
-- **Blockchain Network**: Designed to be deployed on local testnets (Ganache) or public testnets (Sepolia).
+### Demo Mode
 
-## 4. Tech Stack
+Demo Mode uses browser `localStorage` and simulated state.
 
-- **Solidity**: Smart contract development (v0.5.x)
-- **Truffle**: Development environment, testing framework, and asset pipeline
-- **Web3.js**: Ethereum JavaScript API (v0.20 API structure utilized)
-- **Vanilla CSS/JS**: No heavy frontend frameworks, ensuring lightweight and fast execution
-- **Lite-Server**: Lightweight development node server
+- No MetaMask required.
+- No real blockchain transactions.
+- Includes simulated voter/admin workflows.
+- Clearly separated from Live Blockchain Mode.
 
-## 5. Smart Contract Details
+### Live Blockchain Mode
 
-The `Election.sol` contract exposes the following functionality:
-- **State Management**: `electionState` variable tracks whether the election is `NOT_STARTED`, `ACTIVE`, or `CLOSED`.
-- **Role Detection**: The `owner` of the contract can perform administrative actions.
-- **Admin Functions**: 
-  - `addCandidate(string memory _name)`: Adds a candidate (only possible when `NOT_STARTED`).
-  - `startElection()`: Transitions state to `ACTIVE`.
-  - `endElection()`: Transitions state to `CLOSED`.
-- **Voter Functions**:
-  - `vote(uint _candidateId)`: Casts a vote. Requires the sender hasn't voted, the candidate is valid, and the election is `ACTIVE`.
+Live Mode connects the browser to MetaMask and the deployed Sepolia contract.
 
-## 6. Local Setup
+- **Network:** Ethereum Sepolia
+- **Chain ID:** `11155111`
+- **Wallet:** MetaMask
+- **Admin:** contract owner
+- **Voter:** any other connected wallet
+- **Transactions:** real Sepolia testnet transactions
 
-### Prerequisites
-- [Node.js](https://nodejs.org/)
-- [Truffle](https://trufflesuite.com/truffle/) (`npm install -g truffle`)
-- [Ganache](https://trufflesuite.com/ganache/)
-- [MetaMask](https://metamask.io/) extension installed in your browser
+Sepolia ETH has no real-world monetary value.
 
-### Installation
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+## Architecture
 
-## 7. Ganache Setup
-
-1. Open Ganache.
-2. Create a new workspace or use quickstart.
-3. Ensure the RPC Server is running on `http://127.0.0.1:7545`.
-4. The local blockchain is now ready.
-
-## 8. MetaMask Configuration
-
-1. Open MetaMask and add a custom network.
-2. Set RPC URL to `http://127.0.0.1:7545`.
-3. Set Chain ID to `1337` (or `5777` depending on your Ganache version).
-4. Import an account from Ganache into MetaMask using one of the provided private keys.
-
-## 9. Contract Deployment
-
-Deploy the smart contract to the local Ganache network:
-
-```bash
-truffle migrate --reset
+```
+MetaMask
+   │
+   ▼
+Vanilla HTML / CSS / JavaScript
+   │
+   │ Web3.js + Truffle Contract
+   ▼
+Ethereum Sepolia
+   │
+   ▼
+Election.sol
+   ├── owner / admin access control
+   ├── electionState
+   ├── candidates
+   ├── voters[address]
+   └── vote counts + events
 ```
 
-## 10. Frontend Setup
+The frontend reads the contract ABI/address from `build/contracts/Election.json` and interacts with the deployed contract through MetaMask.
 
-Start the local development server:
+## Smart Contract
+
+`contracts/Election.sol` implements:
+
+### Election states
+
+- `NOT_STARTED` — candidates can be added by the owner.
+- `ACTIVE` — eligible connected wallets can vote.
+- `CLOSED` — voting is disabled.
+
+### Admin operations
+
+- `addCandidate(string)`
+- `startElection()`
+- `endElection()`
+
+These operations are protected by the `onlyOwner` modifier.
+
+### Voting
+
+`vote(uint256 candidateId)` checks:
+
+1. The election is active.
+2. The wallet has not already voted.
+3. The candidate ID is valid.
+
+It then records the wallet as having voted and increments the candidate's vote count.
+
+### Events
+
+- `CandidateAdded`
+- `ElectionStarted`
+- `ElectionEnded`
+- `VoteCast`
+
+## Sepolia Deployment
+
+**Contract address:**  
+`0xAce9bDE7a05308f1bECe3D5fA804D695dBa95314`
+
+**Deployment transaction:**  
+`0x089454466e6bdffd38dc6822bbb412f06b38c26462f218917b983fe867ab4000`
+
+**Sepolia Etherscan:**  
+https://sepolia.etherscan.io/address/0xAce9bDE7a05308f1bECe3D5fA804D695dBa95314
+
+## Local Development
+
+### Prerequisites
+
+- Node.js
+- npm
+- Truffle
+- Ganache (for local blockchain development)
+- MetaMask (for wallet interaction)
+
+### Install
+
+```bash
+npm install
+```
+
+### Run the frontend
 
 ```bash
 npm run dev
 ```
 
-The application will launch automatically in your browser at `http://localhost:3000`.
+The Lite Server configuration serves the application locally.
 
-## 11. Sepolia Setup & Deployment
+### Run contract tests
 
-To deploy to Sepolia yourself:
-1. Copy `.env.example` to `.env` and fill in your RPC URL and Private Key.
-2. Run the deployment script to deploy safely to Sepolia:
+```bash
+npm test
+```
+
+The test suite covers deployment, owner access control, election lifecycle transitions, candidate restrictions, successful voting, duplicate-vote rejection, invalid candidate rejection, emitted events, and voting after the election closes.
+
+> **Environment note:** Truffle/Ganache tooling can emit native `uws` compatibility warnings on newer Node.js releases. If the local test environment reports a Ganache runtime compatibility issue, use a Node.js version supported by the installed Truffle/Ganache dependency set.
+
+## Deploying to Sepolia
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+2. Set:
+   ```text
+   SEPOLIA_RPC_URL=<your Sepolia RPC endpoint>
+   DEPLOYER_PRIVATE_KEY=<your deployment wallet private key>
+   ```
+3. Deploy:
    ```bash
    node deploy.js
    ```
 
-## 12. Smart Contract (Sepolia)
+**Never commit `.env` or a real private key.** The repository's `.gitignore` excludes `.env`.
 
-- **Deployed Address:** `0xAce9bDE7a05308f1bECe3D5fA804D695dBa95314` (Active Stage 2 Contract)
+> The frontend does not use the deployer's private key. It uses MetaMask to sign user transactions.
 
-## 13. Live Demo (Frontend Deployment)
+## Project Structure
 
-To deploy the frontend publicly:
-1. Ensure Vercel CLI is installed.
-2. Run `vercel` in the project root.
-3. Your deployment will automatically pick up the live smart contract.
+```
+Voting-Full_stack/
+├── contracts/
+│   └── Election.sol
+├── migrations/
+│   └── 2_deploy_contracts.js
+├── build/contracts/
+│   └── Election.json
+├── src/
+│   ├── index.html
+│   ├── css/
+│   └── js/
+├── test/
+│   └── election.js
+├── deploy.js
+├── truffle-config.js
+├── package.json
+└── .env.example
+```
 
-## 14. Known Limitations
+## Security & Scope Notes
 
-- **Educational/Portfolio Project**: This dApp is designed for demonstration and lacks formal security audits for binding public elections.
-- **Testnet Deployment**: Currently deployed on Ethereum Sepolia, not Mainnet.
+This project demonstrates smart-contract access control and vote-integrity rules, but it should **not** be presented as a production election system.
 
----
+Important limitations:
 
-*Built with Solidity · Ethereum · Web3.js*
+- Wallet addresses are pseudonymous identities, not verified real-world voter identities.
+- The project does not provide ballot secrecy/anonymity.
+- Ethereum Sepolia is a public testnet.
+- There is no formal smart-contract security audit.
+- The contract uses a single owner account for administrative control.
+- The system is intended for learning, portfolio demonstration, and technical evaluation.
+
+## Technology Stack
+
+- **Solidity**
+- **Ethereum / Sepolia**
+- **Web3.js**
+- **Truffle**
+- **MetaMask**
+- **Vanilla HTML/CSS/JavaScript**
+- **Lite Server**
+
+## Author
+
+**Lavish Rahangdale**
+
+GitHub: https://github.com/Lavish911
