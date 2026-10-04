@@ -51,7 +51,7 @@ App = {
     },
 
     initContract: function () {
-        $.getJSON("Election.json", function (election) {
+        $.getJSON("build/contracts/Election.json", function (election) {
             App.contracts.Election = TruffleContract(election);
             App.contracts.Election.setProvider(App.web3Provider);
             
