@@ -14,6 +14,7 @@ App = {
     demoElectionStatus: 'ACTIVE',
     liveElectionStatusStr: 'NOT STARTED',
     liveElectionStatusCode: 0,
+    contractInstance: null,
 
     init: function () {
     },
@@ -234,21 +235,11 @@ App = {
                 App.contracts.Election.setProvider(App.web3Provider);
                 
                 App.contracts.Election.deployed().then(function(instance) {
+                    App.contractInstance = instance;
                     App.setupContractInstance(instance);
                 }).catch(function(err) {
-                    console.warn("TruffleContract.deployed() failed. Attempting explicit Sepolia resolution.", err);
-                    
-                    if (netId === "11155111") {
-                        var sepoliaAddress = "0xf338182B03EF95626a46235DC8C877b9151Ef85C";
-                        App.contracts.Election.at(sepoliaAddress).then(function(instance) {
-                            App.setupContractInstance(instance);
-                        }).catch(function(fallbackErr) {
-                            console.error("Explicit contract instantiation failed.", fallbackErr);
-                            App.showToast("Contract not deployed on this network.", "error");
-                        });
-                    } else {
-                        App.showToast("Contract not deployed on this network.", "error");
-                    }
+                    console.error("Contract instantiation failed.", err);
+                    App.showToast("Contract not deployed on this network.", "error");
                 });
             });
         });
@@ -262,25 +253,29 @@ App = {
     },
 
     listenForEvents: function (instance) {
-        if (typeof instance.CandidateAdded === 'function') {
-            instance.CandidateAdded({}, { fromBlock: 'latest' }).watch(function(err, event) {
-                if(!err) App.renderData();
-            });
-        }
-        if (typeof instance.ElectionStarted === 'function') {
-            instance.ElectionStarted({}, { fromBlock: 'latest' }).watch(function(err, event) {
-                if(!err) App.renderData();
-            });
-        }
-        if (typeof instance.ElectionEnded === 'function') {
-            instance.ElectionEnded({}, { fromBlock: 'latest' }).watch(function(err, event) {
-                if(!err) App.renderData();
-            });
-        }
-        if (typeof instance.VoteCast === 'function') {
-            instance.VoteCast({}, { fromBlock: 'latest' }).watch(function(err, event) {
-                if(!err) App.renderData();
-            });
+        try {
+            if (typeof instance.CandidateAdded === 'function') {
+                instance.CandidateAdded({}, { fromBlock: 'latest' }).watch(function(err, event) {
+                    if(!err) App.renderData();
+                });
+            }
+            if (typeof instance.ElectionStarted === 'function') {
+                instance.ElectionStarted({}, { fromBlock: 'latest' }).watch(function(err, event) {
+                    if(!err) App.renderData();
+                });
+            }
+            if (typeof instance.ElectionEnded === 'function') {
+                instance.ElectionEnded({}, { fromBlock: 'latest' }).watch(function(err, event) {
+                    if(!err) App.renderData();
+                });
+            }
+            if (typeof instance.VoteCast === 'function') {
+                instance.VoteCast({}, { fromBlock: 'latest' }).watch(function(err, event) {
+                    if(!err) App.renderData();
+                });
+            }
+        } catch (e) {
+            console.warn("Event subscription failed, falling back to manual refresh.", e);
         }
     },
 
@@ -350,12 +345,10 @@ App = {
     
     renderData: function() {
         if (App.isDemoMode) return App.renderDemo();
-        var electionInstance;
+        if (!App.contractInstance) return;
+        var electionInstance = App.contractInstance;
         
-        App.contracts.Election.deployed().then(function (instance) {
-            electionInstance = instance;
-            return electionInstance.owner();
-        }).then(function(ownerAddress) {
+        electionInstance.owner().then(function(ownerAddress) {
             App.owner = ownerAddress.toLowerCase();
             return electionInstance.electionState();
         }).then(function(state) {
@@ -448,9 +441,8 @@ App = {
         var name = $("#liveNewCandidateName").val().trim();
         if (!name) return;
         App.showToast("Waiting for wallet confirmation...", "info");
-        App.contracts.Election.deployed().then(function(instance) {
-            return instance.addCandidate(name, { from: App.account });
-        }).then(function(result) {
+        if (!App.contractInstance) return;
+        App.contractInstance.addCandidate(name, { from: App.account }).then(function(result) {
             $("#liveNewCandidateName").val("");
             App.showToast("Candidate Added Successfully!<br><span class='toast-tx'>Tx: " + result.tx + "</span>", "success");
             App.renderData();
@@ -462,9 +454,8 @@ App = {
 
     liveStartElection: function() {
         App.showToast("Waiting for wallet confirmation...", "info");
-        App.contracts.Election.deployed().then(function(instance) {
-            return instance.startElection({ from: App.account });
-        }).then(function(result) {
+        if (!App.contractInstance) return;
+        App.contractInstance.startElection({ from: App.account }).then(function(result) {
             App.showToast("Election Started!<br><span class='toast-tx'>Tx: " + result.tx + "</span>", "success");
             App.renderData();
         }).catch(function(err) {
@@ -475,9 +466,8 @@ App = {
 
     liveEndElection: function() {
         App.showToast("Waiting for wallet confirmation...", "info");
-        App.contracts.Election.deployed().then(function(instance) {
-            return instance.endElection({ from: App.account });
-        }).then(function(result) {
+        if (!App.contractInstance) return;
+        App.contractInstance.endElection({ from: App.account }).then(function(result) {
             App.showToast("Election Ended!<br><span class='toast-tx'>Tx: " + result.tx + "</span>", "success");
             App.renderData();
         }).catch(function(err) {
@@ -634,9 +624,8 @@ App = {
         
         App.showToast("Waiting for wallet confirmation...", "info");
         
-        App.contracts.Election.deployed().then(function (instance) {
-            return instance.vote(candidateId, { from: App.account });
-        }).then(function (result) {
+        if (!App.contractInstance) return;
+        App.contractInstance.vote(candidateId, { from: App.account }).then(function (result) {
             var txHash = result.tx;
             App.showToast("Vote Recorded Successfully!<br><span class='toast-tx'>Tx: " + txHash + "</span>", "success");
             

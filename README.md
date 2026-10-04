@@ -99,7 +99,7 @@ To deploy to Sepolia yourself:
 
 ## 12. Smart Contract (Sepolia)
 
-- **Deployed Address:** *(See build/contracts/Election.json for the latest address)*
+- **Deployed Address:** `0xAce9bDE7a05308f1bECe3D5fA804D695dBa95314` (Active Stage 2 Contract)
 
 ## 13. Live Demo (Frontend Deployment)
 
