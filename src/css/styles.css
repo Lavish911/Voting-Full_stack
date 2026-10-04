@@ -353,8 +353,8 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* Landing Screen */
-.landing-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: var(--bg-color); padding: 24px; }
-.landing-content { max-width: 800px; text-align: center; }
+.landing-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: var(--bg-color); padding: 24px; width: 100%; }
+.landing-content { width: 100%; max-width: 800px; text-align: center; margin: 0 auto; }
 .landing-icon { width: 64px; height: 64px; background: var(--primary-blue-light); color: var(--primary-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
 .landing-icon i { width: 32px; height: 32px; }
 .landing-title { font-size: 1.5rem; color: var(--text-dark-navy); margin-bottom: 8px; }
