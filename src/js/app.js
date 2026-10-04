@@ -193,9 +193,8 @@ App = {
             web3 = new Web3(web3.currentProvider);
             App.onWalletConnected();
         } else {
-            App.web3Provider = new Web3.providers.HttpProvider('http://localhost:7545');
-            web3 = new Web3(App.web3Provider);
-            App.onWalletConnected();
+            App.showToast("MetaMask is required for Live Blockchain mode.", "error");
+            return;
         }
         
         if (window.ethereum) {
@@ -219,7 +218,7 @@ App = {
                 return;
             }
             
-            if (netId !== "11155111" && netId !== "5777" && netId !== "1337") {
+            if (netId !== "11155111") {
                 $("#voterLayout").hide();
                 App.showToast("Wrong Network. Please switch MetaMask to Ethereum Sepolia.", "warning");
                 return;
@@ -259,16 +258,20 @@ App = {
 
     listenForEvents: function (instance) {
         // Listening for events emitted from the contract
-        instance.votedEvent({}, {
-            fromBlock: 0,
-            toBlock: 'latest'
-        }).watch(function (error, event) {
-            if (!error) {
-                console.log("event triggered", event);
-                // We reload UI silently when event happens
-                App.renderData();
-            }
-        });
+        if (typeof instance.votedEvent === 'function') {
+            instance.votedEvent({}, {
+                fromBlock: 0,
+                toBlock: 'latest'
+            }).watch(function (error, event) {
+                if (!error) {
+                    console.log("event triggered", event);
+                    // We reload UI silently when event happens
+                    App.renderData();
+                }
+            });
+        } else {
+            console.warn("votedEvent not found on contract instance. Skipping event listener.");
+        }
     },
 
     getNetworkName: function(id) {
