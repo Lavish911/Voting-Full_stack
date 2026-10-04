@@ -13,6 +13,55 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
+  <!-- LANDING SCREEN -->
+  <div id="landingScreen" class="landing-container">
+    <div class="landing-content">
+      <div class="landing-icon"><i data-lucide="landmark"></i></div>
+      <h1>DecentraVote</h1>
+      <h2 class="landing-title">Blockchain-Based E-Voting Platform</h2>
+      <p class="landing-subtitle">Explore transparent and tamper-resistant digital voting.</p>
+      
+      <div class="landing-cards">
+        <div class="landing-card" onclick="App.startDemoMode()">
+          <span class="card-tag demo-tag">No wallet required</span>
+          <h3><i data-lucide="monitor-play"></i> TRY DEMO</h3>
+          <p>Explore the complete election workflow using simulated local data.</p>
+        </div>
+        
+        <div class="landing-card" onclick="App.startLiveMode()">
+          <span class="card-tag live-tag">Ethereum Sepolia</span>
+          <h3><i data-lucide="link"></i> LIVE BLOCKCHAIN</h3>
+          <p>Use MetaMask and interact with the deployed smart contract. Transactions in this mode are real Sepolia testnet transactions.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP WRAPPER -->
+  <div id="mainAppWrapper" style="display: none;">
+    
+    <!-- MODE BANNERS -->
+    <div id="demoBanner" class="mode-banner demo-banner" style="display: none;">
+      <div class="banner-left">
+        <i data-lucide="info"></i>
+        <span><strong>Demo Mode</strong> — simulated locally. No blockchain transaction is created.</span>
+      </div>
+      <div class="banner-right">
+        <button class="btn-outline-white" id="btnSwitchAdmin" onclick="App.switchAdmin()">Switch to Admin Demo</button>
+        <button class="btn-outline-white" id="btnSwitchVoter" onclick="App.switchVoter()" style="display: none;">Return to Voter Demo</button>
+        <button class="btn-text-white" onclick="App.exitToLanding()"><i data-lucide="x"></i> Exit Demo</button>
+      </div>
+    </div>
+    
+    <div id="liveBanner" class="mode-banner live-banner" style="display: none;">
+      <div class="banner-left">
+        <i data-lucide="activity"></i>
+        <span><strong>LIVE BLOCKCHAIN:</strong> Ethereum Sepolia Testnet</span>
+      </div>
+      <div class="banner-right">
+        <button class="btn-text-white" onclick="App.exitToLanding()"><i data-lucide="log-out"></i> Exit Live Mode</button>
+      </div>
+    </div>
   <nav class="navbar">
     <div class="nav-container">
       <div class="nav-left">
@@ -37,7 +86,7 @@
     </div>
   </nav>
 
-  <div class="layout-container">
+  <div id="voterLayout" class="layout-container">
     <div class="main-column">
       <header class="hero-header">
         <div class="hero-content">
@@ -230,6 +279,53 @@
         </div>
       </div>
     </aside>
+  </div> <!-- End voterLayout -->
+
+  <!-- ADMIN DEMO LAYOUT -->
+  <div id="adminLayout" class="layout-container" style="display: none;">
+    <div class="main-column admin-column">
+      <div class="admin-header">
+        <h2>Admin Demo Dashboard</h2>
+        <p>Manage the simulated election state.</p>
+      </div>
+      
+      <div class="admin-controls">
+        <div class="admin-card">
+          <h3>Election Controls</h3>
+          <p>Status: <strong id="adminElectionStatus">ACTIVE</strong></p>
+          <div class="admin-btn-group">
+            <button class="btn-success" id="btnStartElection" onclick="App.demoStartElection()">Start Election</button>
+            <button class="btn-danger" id="btnEndElection" onclick="App.demoEndElection()">End Election</button>
+            <button class="btn-outline" onclick="App.demoReset()">Reset Demo</button>
+          </div>
+        </div>
+        
+        <div class="admin-card">
+          <h3>Add Candidate</h3>
+          <div class="add-candidate-form">
+            <input type="text" id="newCandidateName" placeholder="Candidate Full Name">
+            <button class="btn-primary" onclick="App.demoAddCandidate()">Add</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="admin-candidates">
+        <h3>Manage Candidates</h3>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Votes</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminCandidatesList">
+            <!-- populated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <footer class="footer">
@@ -286,5 +382,6 @@
   <script>
     lucide.createIcons();
   </script>
+  </div> <!-- End mainAppWrapper -->
 </body>
 </html>

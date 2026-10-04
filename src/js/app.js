@@ -9,9 +9,167 @@ App = {
     networkName: 'Unknown',
     contractAddress: '-',
     selectedCandidateId: null,
+    isDemoMode: false,
+    demoElectionStatus: 'ACTIVE',
 
     init: function () {
+        // App starts at the landing screen
+        // Live or Demo mode is triggered by the UI buttons
+    },
+
+    startLiveMode: function() {
+        $("#landingScreen").hide();
+        $("#mainAppWrapper").show();
+        $("#liveBanner").css("display", "flex");
+        App.isDemoMode = false;
         return App.initWeb3();
+    },
+
+    startDemoMode: function() {
+        $("#landingScreen").hide();
+        $("#mainAppWrapper").show();
+        $("#demoBanner").css("display", "flex");
+        App.isDemoMode = true;
+        
+        // Hide blockchain-specific UI in Demo mode
+        $("#connectWalletBtn").hide();
+        $(".blockchain-info-section").hide();
+        
+        // Setup Demo Identity
+        App.account = "DEMO-VOTER-" + Math.floor(Math.random() * 10000);
+        App.networkName = "Local Demo Simulation";
+        $("#sidebarNetwork").text(App.networkName);
+        
+        App.initDemoState();
+        App.renderDemo();
+    },
+
+    exitToLanding: function() {
+        window.location.reload();
+    },
+
+    switchAdmin: function() {
+        $("#voterLayout").hide();
+        $("#adminLayout").show();
+        $("#btnSwitchAdmin").hide();
+        $("#btnSwitchVoter").show();
+        App.renderAdmin();
+    },
+
+    switchVoter: function() {
+        $("#adminLayout").hide();
+        $("#voterLayout").show();
+        $("#btnSwitchVoter").hide();
+        $("#btnSwitchAdmin").show();
+        App.renderDemo();
+    },
+
+    initDemoState: function() {
+        if (!localStorage.getItem("demoCandidates")) {
+            App.demoReset(true);
+        } else {
+            App.candidates = JSON.parse(localStorage.getItem("demoCandidates"));
+            App.demoElectionStatus = localStorage.getItem("demoElectionStatus") || 'ACTIVE';
+            var voted = JSON.parse(localStorage.getItem("demoVoted") || "{}");
+            App.hasVoted = !!voted[App.account];
+        }
+    },
+
+    saveDemoState: function() {
+        localStorage.setItem("demoCandidates", JSON.stringify(App.candidates));
+        localStorage.setItem("demoElectionStatus", App.demoElectionStatus);
+    },
+
+    demoReset: function(silent) {
+        App.candidates = [
+            { id: 1, name: "Rahul Sharma", voteCount: 0 },
+            { id: 2, name: "Priya Mehta", voteCount: 0 },
+            { id: 3, name: "Arjun Patel", voteCount: 0 }
+        ];
+        App.demoElectionStatus = 'ACTIVE';
+        localStorage.setItem("demoVoted", "{}");
+        App.hasVoted = false;
+        App.saveDemoState();
+        if (!silent) {
+            if ($("#adminLayout").is(":visible")) App.renderAdmin();
+            else App.renderDemo();
+            App.showToast("Demo reset to initial state.", "info");
+        }
+    },
+
+    demoStartElection: function() {
+        App.demoElectionStatus = 'ACTIVE';
+        App.saveDemoState();
+        App.renderAdmin();
+        App.showToast("Election Started.", "success");
+    },
+
+    demoEndElection: function() {
+        App.demoElectionStatus = 'CLOSED';
+        App.saveDemoState();
+        App.renderAdmin();
+        App.showToast("Election Closed.", "warning");
+    },
+
+    demoAddCandidate: function() {
+        var name = $("#newCandidateName").val().trim();
+        if (!name) return;
+        var newId = App.candidates.length > 0 ? Math.max(...App.candidates.map(c => c.id)) + 1 : 1;
+        App.candidates.push({ id: newId, name: name, voteCount: 0 });
+        $("#newCandidateName").val("");
+        App.saveDemoState();
+        App.renderAdmin();
+        App.showToast("Candidate added.", "success");
+    },
+
+    demoRemoveCandidate: function(id) {
+        App.candidates = App.candidates.filter(c => c.id !== id);
+        App.saveDemoState();
+        App.renderAdmin();
+    },
+
+    renderAdmin: function() {
+        $("#adminElectionStatus").text(App.demoElectionStatus);
+        var tbody = $("#adminCandidatesList");
+        tbody.empty();
+        
+        App.candidates.forEach(function(c) {
+            var tr = $('<tr></tr>');
+            tr.append('<td>' + c.id + '</td>');
+            tr.append('<td>' + c.name + '</td>');
+            tr.append('<td>' + c.voteCount + '</td>');
+            var tdAction = $('<td></td>');
+            var btn = $('<button class="btn-sm-danger">Remove</button>');
+            btn.click(function() { App.demoRemoveCandidate(c.id); });
+            tdAction.append(btn);
+            tr.append(tdAction);
+            tbody.append(tr);
+        });
+    },
+
+    renderDemo: function() {
+        App.candidatesCount = App.candidates.length;
+        App.totalVotes = App.candidates.reduce(function(acc, c) { return acc + c.voteCount; }, 0);
+        
+        $("#statCandidates").text(App.candidatesCount);
+        $("#statTotalVotes").text(App.totalVotes);
+        $("#sidebarCandidates").text(App.candidatesCount);
+        $("#sidebarTotalVotes").text(App.totalVotes);
+        
+        if (App.demoElectionStatus === 'CLOSED') {
+            $(".status-active").text("CLOSED").css("color", "var(--error)");
+            $(".badge-success").html('<i data-lucide="x-circle" style="width: 12px; height: 12px; margin-right: 4px;"></i> CLOSED').css("background", "var(--error-bg)").css("color", "var(--error)");
+        } else {
+            $(".status-active").text("ACTIVE").css("color", "var(--success)");
+            $(".badge-success").html('<i data-lucide="check-circle-2" style="width: 12px; height: 12px; margin-right: 4px;"></i> ACTIVE').css("background", "var(--success-bg)").css("color", "var(--success)");
+        }
+        
+        App.renderCandidates();
+        App.renderResults();
+        
+        $("#loader").hide();
+        $("#candidatesList").show();
+        lucide.createIcons();
     },
 
     initWeb3: function () {
@@ -226,7 +384,10 @@ App = {
             var right = $('<div class="candidate-right"></div>');
             var btn = $('<button class="btn-primary">Cast Vote</button>');
             
-            if (App.hasVoted) {
+            if (App.isDemoMode && App.demoElectionStatus !== 'ACTIVE') {
+                btn.prop('disabled', true);
+                btn.text('Closed');
+            } else if (App.hasVoted) {
                 btn.prop('disabled', true);
                 btn.text('Voted');
             } else {
@@ -293,6 +454,34 @@ App = {
         var candidateId = App.selectedCandidateId;
         App.closeModal();
         
+        if (App.isDemoMode) {
+            if (App.demoElectionStatus !== 'ACTIVE') {
+                App.showToast("Election is not active.", "error");
+                return;
+            }
+            if (App.hasVoted) {
+                App.showToast("This demo voter has already participated.", "error");
+                return;
+            }
+            
+            App.showToast("Simulating vote...", "info");
+            setTimeout(function() {
+                var candidate = App.candidates.find(c => c.id === candidateId);
+                if (candidate) candidate.voteCount++;
+                
+                var voted = JSON.parse(localStorage.getItem("demoVoted") || "{}");
+                voted[App.account] = true;
+                localStorage.setItem("demoVoted", JSON.stringify(voted));
+                
+                App.hasVoted = true;
+                App.saveDemoState();
+                
+                App.showToast("Demo Vote Recorded Successfully!", "success");
+                App.renderDemo();
+            }, 800);
+            return;
+        }
+
         if (App.hasVoted) {
             App.showToast("This wallet has already participated in this election.", "error");
             return;
