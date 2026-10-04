@@ -3,123 +3,341 @@ App = {
     contracts: {},
     account: '0x0',
     hasVoted: false,
+    candidatesCount: 0,
+    candidates: [],
+    totalVotes: 0,
+    networkName: 'Unknown',
+    contractAddress: '-',
+    selectedCandidateId: null,
 
     init: function () {
         return App.initWeb3();
     },
 
     initWeb3: function () {
-        // TODO: refactor conditional
-        if (typeof web3 !== 'undefined') {
-            // If a web3 instance is already provided by Meta Mask.
+        if (typeof window.ethereum !== 'undefined') {
+            App.web3Provider = window.ethereum;
+            web3 = new Web3(window.ethereum);
+            try {
+                window.ethereum.request({ method: 'eth_requestAccounts' }).then(function() {
+                    App.onWalletConnected();
+                });
+            } catch (error) {
+                console.error("User denied account access");
+                App.showToast("Error connecting wallet", "error");
+            }
+        } else if (typeof web3 !== 'undefined') {
             App.web3Provider = web3.currentProvider;
             web3 = new Web3(web3.currentProvider);
+            App.onWalletConnected();
         } else {
-            // Specify default instance if no web3 instance provided
             App.web3Provider = new Web3.providers.HttpProvider('http://localhost:7545');
             web3 = new Web3(App.web3Provider);
+            App.onWalletConnected();
         }
-        return App.initContract();
+        
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', function (accounts) {
+                window.location.reload();
+            });
+            window.ethereum.on('chainChanged', function (chainId) {
+                window.location.reload();
+            });
+        }
+    },
+
+    onWalletConnected: function() {
+        App.initContract();
     },
 
     initContract: function () {
         $.getJSON("Election.json", function (election) {
-            // Instantiate a new truffle contract from the artifact
             App.contracts.Election = TruffleContract(election);
-            // Connect provider to interact with contract
             App.contracts.Election.setProvider(App.web3Provider);
-
-            //App.listenForEvents();
-
-            return App.render();
+            
+            App.contracts.Election.deployed().then(function(instance) {
+                App.contractAddress = instance.address;
+                $('#infoContract').text(instance.address);
+                App.listenForEvents(instance);
+                return App.render();
+            }).catch(function(err) {
+                console.error("Contract not deployed to detected network.", err);
+                App.showToast("Contract not deployed on this network.", "error");
+            });
         });
     },
 
-    // Listen for events emitted from the contract
-    // listenForEvents: function () {
-    //     App.contracts.Election.deployed().then(function (instance) {
-    //         // Restart Chrome if you are unable to receive this event
-    //         // This is a known issue with Metamask
-    //         // https://github.com/MetaMask/metamask-extension/issues/2393
-    //         instance.votedEvent({}, {
-    //             fromBlock: 0,
-    //             toBlock: 'latest'
-    //         }).watch(function (error, event) {
-    //             console.log("event triggered", event)
-    //             // Reload when a new vote is recorded
-    //             App.render();
-    //         });
-    //     });
-    // },
+    listenForEvents: function (instance) {
+        // Listening for events emitted from the contract
+        instance.votedEvent({}, {
+            fromBlock: 0,
+            toBlock: 'latest'
+        }).watch(function (error, event) {
+            if (!error) {
+                console.log("event triggered", event);
+                // We reload UI silently when event happens
+                App.renderData();
+            }
+        });
+    },
+
+    getNetworkName: function(id) {
+        switch (id) {
+            case "1": return "Ethereum Mainnet";
+            case "2": return "Morden";
+            case "3": return "Ropsten";
+            case "4": return "Rinkeby";
+            case "5": return "Goerli";
+            case "42": return "Kovan";
+            case "11155111": return "Sepolia";
+            case "5777": return "Ganache / Local";
+            default: return "Network ID: " + id;
+        }
+    },
 
     render: function () {
-        var electionInstance;
         var loader = $("#loader");
-        var content = $("#content");
+        var content = $("#candidatesList");
 
         loader.show();
         content.hide();
 
-        // Load account data
         web3.eth.getCoinbase(function (err, account) {
-            if (err === null) {
+            if (err === null && account) {
                 App.account = account;
-                $("#accountAddress").html("<span id='accountTag'>Your Account :</span> <span id='myAccount'>" + account + "</span>");
+                var shortAccount = account.substring(0,6) + '...' + account.substring(account.length-4);
+                
+                $("#infoWallet").text(account);
+                
+                var btn = $("#connectWalletBtn");
+                btn.html('<span class="indicator active"></span> ' + shortAccount);
+                btn.addClass('connected');
+                
+                $("#infoStatusIndicator").addClass('active');
+                $("#infoStatusText").text("Connected");
+            } else {
+                $("#infoStatusIndicator").removeClass('active').addClass('error');
+                $("#infoStatusText").text("Disconnected");
             }
         });
 
-        // Load contract data
+        web3.version.getNetwork(function(err, netId) {
+            if (!err) {
+                App.networkName = App.getNetworkName(netId);
+                
+                if (netId !== "11155111" && netId !== "5777" && netId !== "1337") {
+                    $("#networkName").html("&#9888; Wrong Network");
+                    $("#networkBadge .indicator").removeClass('active').addClass('warning');
+                    App.showToast("Please switch to Sepolia testnet.", "warning");
+                } else {
+                    $("#networkName").text(App.networkName);
+                    $("#networkBadge .indicator").removeClass('warning').addClass('active');
+                }
+                
+                $("#infoNetwork").text(App.networkName);
+                $("#sidebarNetwork").text(App.networkName);
+            }
+        });
+        
+        web3.eth.getBlockNumber(function(err, blockNum) {
+            if (!err) {
+                $("#infoBlock").text(blockNum);
+            }
+        });
+
+        App.renderData();
+    },
+    
+    renderData: function() {
+        var electionInstance;
+        
         App.contracts.Election.deployed().then(function (instance) {
             electionInstance = instance;
             return electionInstance.candidatesCount();
-        }).then(function (candidatesCount) {
-            var candidatesResults = $("#candidatesResults");
-            candidatesResults.empty();  
-
-            var candidatesSelect = $('#candidatesSelect');
-            candidatesSelect.empty();
-
-            for (var i = 1; i <= candidatesCount; i++) {
-                electionInstance.candidates(i).then(function (candidate) {
-                    var id = candidate[0];
-                    var name = candidate[1];
-                    var voteCount = candidate[2];
-
-                    // Render candidate Result
-                    var candidateTemplate = "<tr><td>" + id + "</td><td>" + name + "</td><td>" + voteCount + "</td></tr>"
-                    candidatesResults.append(candidateTemplate);
-
-                    // Render candidate ballot option
-                    var candidateOption = "<option value='" + id + "' >" + name + "</ option>"
-                    candidatesSelect.append(candidateOption);
-                });
+        }).then(function (count) {
+            App.candidatesCount = count.toNumber();
+            var promises = [];
+            for (var i = 1; i <= App.candidatesCount; i++) {
+                promises.push(electionInstance.candidates(i));
             }
+            return Promise.all(promises);
+        }).then(function (candidatesData) {
+            App.candidates = candidatesData.map(function(c) {
+                return {
+                    id: c[0].toNumber(),
+                    name: c[1],
+                    voteCount: c[2].toNumber()
+                };
+            });
+            
+            App.totalVotes = App.candidates.reduce(function(acc, c) { return acc + c.voteCount; }, 0);
+            
+            // Update Stats
+            $("#statCandidates").text(App.candidatesCount);
+            $("#statTotalVotes").text(App.totalVotes);
+            $("#sidebarCandidates").text(App.candidatesCount);
+            $("#sidebarTotalVotes").text(App.totalVotes);
+            
             return electionInstance.voters(App.account);
         }).then(function (hasVoted) {
-            // Do not allow a user to vote
-            if (hasVoted) {
-                $('form').hide();
-                $("#voteStatus").show();
-            }
-            loader.hide();
-            content.show();
+            App.hasVoted = hasVoted;
             
+            App.renderCandidates();
+            App.renderResults();
+            
+            $("#loader").hide();
+            $("#candidatesList").show();
         }).catch(function (error) {
             console.warn(error);
         });
     },
+    
+    renderCandidates: function() {
+        var container = $("#candidatesList");
+        container.empty();
+        
+        App.candidates.forEach(function(c) {
+            var percentage = App.totalVotes > 0 ? ((c.voteCount / App.totalVotes) * 100).toFixed(1) : 0;
+            var numStr = (c.id < 10) ? '0' + c.id : c.id;
+            
+            // Generate initials
+            var initials = c.name.split(' ').map(function(n) { return n[0]; }).join('').toUpperCase().substring(0, 2);
+            
+            var row = $('<div class="candidate-row"></div>');
+            
+            var left = $('<div class="candidate-left"></div>');
+            left.append('<span class="candidate-number">' + numStr + '</span>');
+            left.append('<div class="candidate-avatar">' + initials + '</div>');
+            
+            var info = $('<div class="candidate-info"></div>');
+            info.append('<span class="candidate-name">' + c.name + '</span>');
+            info.append('<span class="candidate-label">Candidate</span>');
+            left.append(info);
+            
+            var center = $('<div class="candidate-center"></div>');
+            var statsHeader = $('<div class="candidate-stats-header"></div>');
+            statsHeader.append('<span class="candidate-votes">' + c.voteCount + ' votes</span>');
+            statsHeader.append('<span class="candidate-percentage">' + percentage + '%</span>');
+            center.append(statsHeader);
+            
+            var progress = $('<div class="progress-container"><div class="progress-bar" style="width: ' + percentage + '%"></div></div>');
+            center.append(progress);
+            
+            var right = $('<div class="candidate-right"></div>');
+            var btn = $('<button class="btn-primary">Cast Vote</button>');
+            
+            if (App.hasVoted) {
+                btn.prop('disabled', true);
+                btn.text('Voted');
+            } else {
+                btn.click(function() {
+                    App.openConfirmModal(c.id, c.name);
+                });
+            }
+            
+            right.append(btn);
+            
+            row.append(left);
+            row.append(center);
+            row.append(right);
+            
+            container.append(row);
+        });
+    },
+    
+    renderResults: function() {
+        var container = $("#resultsList");
+        container.empty();
+        
+        // Sort candidates by vote count descending
+        var sorted = [...App.candidates].sort((a,b) => b.voteCount - a.voteCount);
+        
+        sorted.forEach(function(c, index) {
+            var percentage = App.totalVotes > 0 ? ((c.voteCount / App.totalVotes) * 100).toFixed(1) : 0;
+            var numStr = (index + 1 < 10) ? '0' + (index + 1) : (index + 1);
+            
+            var item = $('<div class="result-item"></div>');
+            var header = $('<div class="result-header"></div>');
+            header.append('<div class="result-name"><span class="candidate-number">' + numStr + '</span> ' + c.name + '</div>');
+            header.append('<div class="result-stats">' + c.voteCount + ' votes <span class="candidate-percentage">(' + percentage + '%)</span></div>');
+            
+            var bar = $('<div class="result-bar-bg"><div class="result-bar-fill" style="width: ' + percentage + '%"></div></div>');
+            
+            item.append(header);
+            item.append(bar);
+            container.append(item);
+        });
+    },
+    
+    openConfirmModal: function(id, name) {
+        App.selectedCandidateId = id;
+        $("#modalCandidateName").text(name);
+        
+        var shortAccount = App.account ? App.account.substring(0,6) + '...' + App.account.substring(App.account.length-4) : '-';
+        $("#modalWallet").text(shortAccount);
+        $("#modalNetwork").text(App.networkName);
+        
+        $("#confirmModal").css("display", "flex");
+        
+        $("#confirmVoteBtn").off('click').on('click', function() {
+            App.castVote();
+        });
+    },
+    
+    closeModal: function() {
+        $("#confirmModal").hide();
+        App.selectedCandidateId = null;
+    },
 
     castVote: function () {
-        var candidateId = $('#candidatesSelect').val();
+        var candidateId = App.selectedCandidateId;
+        App.closeModal();
+        
+        if (App.hasVoted) {
+            App.showToast("This wallet has already participated in this election.", "error");
+            return;
+        }
+        
+        App.showToast("Waiting for wallet confirmation...", "info");
+        
         App.contracts.Election.deployed().then(function (instance) {
             return instance.vote(candidateId, { from: App.account });
         }).then(function (result) {
-            // Wait for votes to update
-            $("#content").hide();
+            var txHash = result.tx;
+            App.showToast("Vote Recorded Successfully!<br><span class='toast-tx'>Tx: " + txHash + "</span>", "success");
+            
+            var shortTx = txHash.substring(0,6) + '...' + txHash.substring(txHash.length-4);
+            $("#infoTx").text(shortTx);
+            
+            $("#candidatesList").hide();
             $("#loader").show();
+            App.renderData();
         }).catch(function (err) {
             console.error(err);
+            if (err.message.indexOf("revert") >= 0) {
+                App.showToast("Vote already recorded. Transaction reverted.", "error");
+            } else if (err.message.indexOf("User denied") >= 0) {
+                App.showToast("Transaction cancelled by user.", "warning");
+            } else {
+                App.showToast("Error recording vote. See console.", "error");
+            }
         });
+    },
+    
+    showToast: function(message, type) {
+        var container = $("#toastContainer");
+        var icon = "info";
+        if (type === 'success') icon = "check-circle";
+        if (type === 'error') icon = "alert-circle";
+        if (type === 'warning') icon = "alert-triangle";
+        
+        var toast = $('<div class="toast ' + type + '"><i data-lucide="' + icon + '"></i> <div>' + message + '</div></div>');
+        container.append(toast);
+        lucide.createIcons();
+        
+        setTimeout(function() {
+            toast.fadeOut(300, function() { $(this).remove(); });
+        }, 5000);
     }
 };
 

@@ -1,76 +1,290 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
-  <title>Election Voting</title>
-
-  <!-- Bootstrap -->
-  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <title>Election 2026</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  
   <link href="css/styles.css" rel="stylesheet">
-  </link>
-
-  <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
-  <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
-  <!--[if lt IE 9]>
-      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
-      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
-    <![endif]-->
+  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-
 <body>
-  <div class="container" style="width: 650px;">
-    <div class="row">
-      <div class="col-lg-12">
-        <div class="row">
-          <h1 class="text-center"><span id="tag">E-Voting </span>Election Results</h1>
-          <h1 class="text-end">Live</h1>
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="nav-left">
+        <i data-lucide="landmark" class="nav-icon"></i>
+        <span class="nav-brand">ELECTION 2026</span>
+      </div>
+      <div class="nav-center">
+        <div class="nav-links">
+          <a href="#candidates" class="active">Candidates</a>
+          <a href="#results">Results</a>
+          <a href="#how-it-works">How It Works</a>
         </div>
-        <hr />
-        <br />
-        <div id="loader">
-          <p class="text-center">Loading...</p>
+      </div>
+      <div class="nav-right">
+        <div class="network-badge" id="networkBadge">
+          <span class="indicator active"></span> <span id="networkName">Sepolia</span> <i data-lucide="chevron-down" style="width: 14px; height: 14px; margin-left: 4px; color: var(--text-muted)"></i>
         </div>
-        <div id="content" style="display: none;">
-          <table class="table">
-            <thead>
-              <tr>
-                <th scope="col">#ID</th>
-                <th scope="col">Candidate Name</th>
-                <th scope="col">Vote Count</th>
-              </tr>
-            </thead>
-            <tbody id="candidatesResults">
-            </tbody>
-          </table>
-          <hr />
-          <form onSubmit="App.castVote(); return false;">
-            <div class="form-group">
-              <label for="candidatesSelect">Select Candidate</label>
-              <select class="form-control" id="candidatesSelect">
-              </select>
+        <button id="connectWalletBtn" class="wallet-btn btn-primary" onclick="App.initWeb3()">
+          <i data-lucide="wallet"></i> Connect Wallet
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="layout-container">
+    <div class="main-column">
+      <header class="hero-header">
+        <div class="hero-content">
+          <span class="overtitle">DECENTRALIZED E-VOTING PLATFORM</span>
+          <h1>PRESIDENTIAL ELECTION 2026</h1>
+          <p class="subtitle">Secure. Transparent. Tamper-proof.</p>
+          <p class="description">Your vote matters. Powered by Ethereum blockchain.</p>
+        </div>
+        <div class="hero-bg-graphic">
+          <!-- We'll simulate the graphic with CSS or just leave space for it -->
+        </div>
+      </header>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon-wrapper blue">
+            <i data-lucide="users"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" id="statCandidates">3</div>
+            <div class="stat-label">Candidates</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon-wrapper blue">
+            <i data-lucide="bar-chart-2"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" id="statTotalVotes">0</div>
+            <div class="stat-label">Total Votes Cast</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon-wrapper green">
+            <i data-lucide="check-circle-2"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value status-active">ACTIVE</div>
+            <div class="stat-label">Election Status</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toast Notifications -->
+      <div id="toastContainer" class="toast-container"></div>
+
+      <section id="candidates" class="section candidates-section">
+        <div class="section-header">
+          <h2>Candidates</h2>
+          <p>Select one candidate to cast your vote. Each connected wallet can vote only once.</p>
+        </div>
+        
+        <div id="loader" class="loader-container">
+          <i data-lucide="loader-2" class="spinner"></i> Loading blockchain data...
+        </div>
+        
+        <div id="candidatesList" class="candidates-list" style="display: none;">
+          <!-- Candidates rendered here -->
+        </div>
+      </section>
+
+      <section class="section blockchain-info-section">
+        <h2>Blockchain Information</h2>
+        <div class="info-cards">
+          <div class="info-card">
+            <div class="info-card-icon"><i data-lucide="network"></i></div>
+            <div class="info-card-content">
+              <span class="info-label">Network</span>
+              <span class="info-value" id="infoNetwork">Sepolia</span>
+              <span class="info-status" id="infoStatusText"><span class="indicator active" id="infoStatusIndicator"></span> Connected</span>
             </div>
-            <button type="submit" class="btn btn-primary">Vote</button>
-            <div id="note">Please note that vote once recorded cannot be changed!</div>
-            <hr />
-          </form>
-          <div id="voteStatus" style="display: none;">Your vote has been recorded.</div>
-          <div id="accountAddress" class="text-center"></div>
+          </div>
+          
+          <div class="info-card">
+            <div class="info-card-icon"><i data-lucide="file-code"></i></div>
+            <div class="info-card-content">
+              <span class="info-label">Contract Address</span>
+              <span class="info-value mono" id="infoContract">-</span>
+            </div>
+          </div>
+          
+          <div class="info-card">
+            <div class="info-card-icon"><i data-lucide="box"></i></div>
+            <div class="info-card-content">
+              <span class="info-label">Latest Block</span>
+              <span class="info-value mono" id="infoBlock">-</span>
+            </div>
+          </div>
+          
+          <div class="info-card">
+            <div class="info-card-icon"><i data-lucide="arrow-left-right"></i></div>
+            <div class="info-card-content">
+              <span class="info-label">Latest Transaction</span>
+              <span class="info-value mono" id="infoTx">-</span>
+            </div>
+          </div>
         </div>
+      </section>
+    </div>
+
+    <aside class="sidebar">
+      <div class="sidebar-card election-info-card">
+        <div class="card-header-flex">
+          <h2>Election Information</h2>
+          <span class="badge badge-success"><i data-lucide="check-circle-2" style="width: 12px; height: 12px; margin-right: 4px;"></i> ACTIVE</span>
+        </div>
+        
+        <div class="info-list">
+          <div class="info-list-item">
+            <div class="info-list-label"><i data-lucide="calendar"></i> Election Name</div>
+            <div class="info-list-value">Presidential Election 2026</div>
+          </div>
+          <div class="info-list-item">
+            <div class="info-list-label"><i data-lucide="file-text"></i> Election ID</div>
+            <div class="info-list-value">#EVT-2026-001</div>
+          </div>
+          <div class="info-list-item">
+            <div class="info-list-label"><i data-lucide="hexagon"></i> Network</div>
+            <div class="info-list-value" id="sidebarNetwork">Sepolia</div>
+          </div>
+          <div class="info-list-item">
+            <div class="info-list-label"><i data-lucide="users"></i> Total Candidates</div>
+            <div class="info-list-value" id="sidebarCandidates">3</div>
+          </div>
+          <div class="info-list-item">
+            <div class="info-list-label"><i data-lucide="bar-chart-2"></i> Total Votes Cast</div>
+            <div class="info-list-value" id="sidebarTotalVotes">0</div>
+          </div>
+          <div class="info-list-item">
+            <div class="info-list-label"><i data-lucide="clock"></i> Created</div>
+            <div class="info-list-value">Aug 20, 2026</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-card how-it-works-card">
+        <h2>How It Works</h2>
+        <div class="timeline">
+          <div class="timeline-step">
+            <div class="timeline-number">1</div>
+            <div class="timeline-content">
+              <div class="step-header">
+                <div class="step-icon blue-bg"><i data-lucide="wallet"></i></div>
+                <h3>Connect Wallet</h3>
+              </div>
+              <p>Connect your MetaMask wallet.</p>
+            </div>
+          </div>
+          
+          <div class="timeline-step">
+            <div class="timeline-number">2</div>
+            <div class="timeline-content">
+              <div class="step-header">
+                <div class="step-icon blue-bg"><i data-lucide="users"></i></div>
+                <h3>Select Candidate</h3>
+              </div>
+              <p>Choose one candidate to cast your vote.</p>
+            </div>
+          </div>
+          
+          <div class="timeline-step">
+            <div class="timeline-number">3</div>
+            <div class="timeline-content">
+              <div class="step-header">
+                <div class="step-icon blue-bg"><i data-lucide="file-check"></i></div>
+                <h3>Confirm Transaction</h3>
+              </div>
+              <p>Approve the transaction through MetaMask.</p>
+            </div>
+          </div>
+          
+          <div class="timeline-step">
+            <div class="timeline-number">4</div>
+            <div class="timeline-content">
+              <div class="step-header">
+                <div class="step-icon green-bg"><i data-lucide="check-circle-2"></i></div>
+                <h3>Vote Recorded</h3>
+              </div>
+              <p>Your vote is permanently recorded on Ethereum.</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="alert-box">
+          <i data-lucide="shield-check" class="alert-icon"></i>
+          <div class="alert-content">
+            <h4>One Person, One Vote</h4>
+            <p>Each wallet address can vote only once. Duplicate voting is prevented by the smart contract.</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <i data-lucide="landmark" class="nav-icon"></i>
+        <div>
+          <p class="footer-brand">ELECTION 2026</p>
+          <p class="footer-desc">Decentralized E-Voting Platform</p>
+          <p class="footer-tech">Built with Solidity · Ethereum · Web3.js</p>
+        </div>
+      </div>
+      <div class="footer-center">
+        <a href="#candidates">Candidates</a>
+        <a href="#results">Results</a>
+        <a href="#how-it-works">How It Works</a>
+      </div>
+      <div class="footer-right">
+        <a href="https://github.com" target="_blank" class="github-link"><i data-lucide="github"></i> GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Confirmation Modal -->
+  <div id="confirmModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>Confirm Your Vote</h3>
+      <div class="modal-body">
+        <div class="modal-row">
+          <span class="modal-label">Candidate</span>
+          <span class="modal-value" id="modalCandidateName">-</span>
+        </div>
+        <div class="modal-row">
+          <span class="modal-label">Wallet</span>
+          <span class="modal-value mono" id="modalWallet">-</span>
+        </div>
+        <div class="modal-row">
+          <span class="modal-label">Network</span>
+          <span class="modal-value" id="modalNetwork">-</span>
+        </div>
+        <p class="modal-message">This vote will be recorded permanently on the Ethereum blockchain.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="App.closeModal()">Cancel</button>
+        <button class="btn-confirm" id="confirmVoteBtn">Confirm Vote</button>
       </div>
     </div>
   </div>
 
-  <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
-  <!-- Include all compiled plugins (below), or include individual files as needed -->
-  <script src="js/bootstrap.min.js"></script>
   <script src="js/web3.min.js"></script>
   <script src="js/truffle-contract.js"></script>
   <script src="js/app.js"></script>
+  <script>
+    lucide.createIcons();
+  </script>
 </body>
-
 </html>
